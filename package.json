@@ -1,0 +1,17 @@
+{
+  "name": "christadelphian-bible-talks-kit",
+  "version": "1.0.0",
+  "description": "Pull classes from christadelphianbibletalks.com and show them on your own website.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "files": ["dist", "src", "README.md", "AGENTS.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc",
+    "test": "node test/smoke.mjs"
+  },
+  "devDependencies": { "typescript": "^5.6.0" },
+  "license": "MIT",
+  "repository": "github:garfieldguru565/christadelphian-bible-talks-kit"
+}

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bible Talks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.4; }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    input, select, button { font: inherit; padding: .4rem .6rem; }
+    li { margin: .4rem 0; }
+    button.link { background: none; border: 0; padding: 0; color: #0645ad; cursor: pointer; text-align: left; }
+    audio { width: 100%; }
+    .meta { color: #555; font-size: .9em; }
+  </style>
+</head>
+<body>
+  <h1>Bible Talks</h1>
+  <form id="search">
+    <input name="q" placeholder="Search titles">
+    <select name="speaker"><option value="">All speakers</option></select>
+    <button>Search</button>
+  </form>
+  <p id="status">Loading…</p>
+  <ul id="results"></ul>
+  <section id="study" hidden></section>
+  <p class="meta">Recordings from <a href="https://christadelphianbibletalks.com">Christadelphian Bible Talks</a>.</p>
+
+  <script type="module">
+    // Serve this folder over http (e.g. `npx serve ..` from this folder) so the import resolves.
+    import { createBibleTalksClient, createSpeakerNormalizer } from '../dist/index.js';
+
+    const talks = createBibleTalksClient();
+    const speakers = createSpeakerNormalizer();
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, props = {}, ...kids) => {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...kids);
+      return node;
+    };
+
+    let catalog = [];
+
+    function showList(studies) {
+      $('status').textContent = `${studies.length} studies`;
+      $('results').replaceChildren(...studies.slice(0, 100).map((s) => el('li', {},
+        el('button', { className: 'link', textContent: s.title, onclick: () => openStudy(s.id) }),
+        el('div', { className: 'meta', textContent: [speakers.canonicalNames(s.speaker).join(', '), s.location, s.year].filter(Boolean).join(' · ') }),
+      )));
+    }
+
+    async function openStudy(id) {
+      const s = await talks.getStudy(id);
+      if (!s) return;
+      $('study').hidden = false;
+      $('study').replaceChildren(
+        el('h2', { textContent: s.title }),
+        el('p', { className: 'meta', textContent: `${s.speaker} · ${s.location} · ${s.year}` }),
+        el('p', { textContent: s.description }),
+        el('ol', {}, ...s.classes.map((c) => el('li', {},
+          el('div', { textContent: `${c.title}${c.length ? ` (${c.length})` : ''}` }),
+          el('audio', { controls: true, preload: 'none', src: talks.audioUrl(c) }),
+        ))),
+        ...(s.notes.length ? [el('p', {}, 'Notes: ', ...s.notes.map((n) => el('a', { href: talks.noteUrl(n), textContent: n.title + ' ' })))] : []),
+        el('p', {}, el('a', { href: talks.sourcePageUrl(s.id), textContent: 'View on christadelphianbibletalks.com' })),
+      );
+      $('study').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    $('search').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = e.target.q.value.trim();
+      const who = e.target.speaker.value;
+      $('status').textContent = 'Searching…';
+      let studies = q ? await talks.searchStudies({ title: q }) : catalog;
+      if (who) studies = speakers.studiesBy(studies, who);
+      showList(studies);
+    });
+
+    try {
+      catalog = await talks.listStudies();
+      $('search').speaker.append(...speakers.speakersOf(catalog).map((name) => el('option', { value: name, textContent: name })));
+      showList(catalog);
+    } catch (err) {
+      $('status').textContent = `Couldn't reach Bible Talks: ${err.message}`;
+    }
+  </script>
+</body>
+</html>
